@@ -1,0 +1,26 @@
+bot "hyper_offense" format gen9randombattle
+
+on turn:
+  rule tera_finish:
+    when likely(can_ko(my.active, opponent.active)) and my.active.is_tera_available
+    do use strongest_move against opponent.active with tera
+
+  rule press_ko:
+    when likely(can_ko(my.active, opponent.active))
+    do use strongest_move against opponent.active
+
+  rule find_faster_ko:
+    when worst_case(opponent.active outspeeds my.active)
+         and exists bench b where likely(can_ko(b, opponent.active))
+    do switch_to best bench by matchup_score(it, opponent.active)
+
+  otherwise:
+    do use strongest_move against opponent.active
+
+on forced_switch:
+  rule best_attacker:
+    when exists bench b where likely(can_ko(b, opponent.active))
+    do switch_to best bench by matchup_score(it, opponent.active)
+
+  otherwise:
+    do switch_to best bench by matchup_score(it, opponent.active)

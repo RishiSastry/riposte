@@ -39,8 +39,24 @@ proves reusable, it can be `git subtree split` out later with full history.
 
 ## Status
 
-Pre-M0. Scaffold only. Next: **M0 — walking skeleton** (local Showdown running; a
-hand-written `policy.json` interpreted by a minimal `RipostePlayer` that beats
-`RandomPlayer` >70% over 100 battles). No Rust until battles run locally.
+The **DSL and MCP server are built**; the eval kit is deferred (build order: DSL → MCP →
+eval kit).
 
-See [SPEC.md §9](./SPEC.md) for milestones M0–M5.
+- **M0** walking skeleton ✅ — runtime interprets a hand-written IR; beats `RandomPlayer` 99%.
+- **M1** compiler front end ✅ — lexer, recursive-descent parser + recovery, AST,
+  `GRAMMAR.ebnf`, `diag.json`.
+- **M2** type system + predicates ✅ — fact/est + `tribool` + resolvers (E030–E034); real
+  gen-9 damage calc; shared `predicates.toml`. Compiler output validates against the runtime
+  schema *and* plays real battles.
+- **MCP** ✅ — `riposte-mcp` serves the `steering/` grains (`language_overview`, `get_topic`,
+  `predicate_reference`, `explain_error`, `check_program`).
+- **Eval kit** — deferred until requested (C1–C4 conditions, win-rate metrics, harness).
+
+Try it:
+
+```bash
+cargo build --manifest-path compiler/Cargo.toml
+compiler/target/debug/riposte-c build examples/hazard_control.rpo --stdout   # → policy.json
+```
+
+See [SPEC.md §9](./SPEC.md) for the full milestone map (M3 eval harness, M4 full matrix, M5 post).
