@@ -1,0 +1,4 @@
+# Pinned Pokémon Showdown server commit for reproducible evals (SPEC §3, M0).
+# Clone: git clone https://github.com/smogon/pokemon-showdown.git
+# Then:  git checkout <this-sha>
+8ff48edc09e4aed6011c966258a5f95899128443

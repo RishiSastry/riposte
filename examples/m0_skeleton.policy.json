@@ -1,0 +1,134 @@
+{
+  "ir_version": "0.1",
+  "header": {
+    "name": "m0_skeleton",
+    "format": "gen9randombattle",
+    "source_hash": null,
+    "compiler_version": "hand-written-M0"
+  },
+  "on_turn": [
+    {
+      "rule_name": "press_advantage",
+      "when": {
+        "kind": "resolve",
+        "op": "likely",
+        "arg": {
+          "kind": "pred",
+          "name": "can_ko",
+          "args": [
+            {"kind": "ref", "path": ["my", "active"]},
+            {"kind": "ref", "path": ["opponent", "active"]}
+          ]
+        }
+      },
+      "action": {
+        "kind": "use_strongest",
+        "target": {"kind": "ref", "path": ["opponent", "active"]}
+      }
+    },
+    {
+      "rule_name": "escape_bad_matchup",
+      "when": {
+        "kind": "and",
+        "operands": [
+          {
+            "kind": "resolve",
+            "op": "worst_case",
+            "arg": {
+              "kind": "outspeeds",
+              "left": {"kind": "ref", "path": ["opponent", "active"]},
+              "right": {"kind": "ref", "path": ["my", "active"]}
+            }
+          },
+          {
+            "kind": "resolve",
+            "op": "likely",
+            "arg": {
+              "kind": "pred",
+              "name": "can_ko",
+              "args": [
+                {"kind": "ref", "path": ["opponent", "active"]},
+                {"kind": "ref", "path": ["my", "active"]}
+              ]
+            }
+          },
+          {
+            "kind": "exists",
+            "domain": "bench",
+            "var": "b",
+            "body": {
+              "kind": "pred",
+              "name": "resists",
+              "args": [
+                {"kind": "ref", "path": ["it"]},
+                {"kind": "ref", "path": ["opponent", "active", "primary_type"]}
+              ]
+            }
+          }
+        ]
+      },
+      "action": {
+        "kind": "switch_best",
+        "domain": "bench",
+        "order": "max",
+        "by": {
+          "kind": "pred",
+          "name": "matchup_score",
+          "args": [
+            {"kind": "ref", "path": ["it"]},
+            {"kind": "ref", "path": ["opponent", "active"]}
+          ]
+        }
+      }
+    },
+    {
+      "rule_name": "otherwise",
+      "when": null,
+      "action": {
+        "kind": "use_strongest",
+        "target": {"kind": "ref", "path": ["opponent", "active"]}
+      }
+    }
+  ],
+  "on_forced_switch": [
+    {
+      "rule_name": "safe_pivot",
+      "when": {
+        "kind": "exists",
+        "domain": "bench",
+        "var": "b",
+        "body": {
+          "kind": "pred",
+          "name": "resists",
+          "args": [
+            {"kind": "ref", "path": ["it"]},
+            {"kind": "ref", "path": ["opponent", "active", "primary_type"]}
+          ]
+        }
+      },
+      "action": {
+        "kind": "switch_best",
+        "domain": "bench",
+        "order": "max",
+        "by": {
+          "kind": "pred",
+          "name": "matchup_score",
+          "args": [
+            {"kind": "ref", "path": ["it"]},
+            {"kind": "ref", "path": ["opponent", "active"]}
+          ]
+        }
+      }
+    },
+    {
+      "rule_name": "otherwise",
+      "when": null,
+      "action": {
+        "kind": "switch_best",
+        "domain": "bench",
+        "order": "max",
+        "by": {"kind": "ref", "path": ["it", "hp_fraction"]}
+      }
+    }
+  ]
+}
