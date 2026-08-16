@@ -145,19 +145,28 @@ TOOLS = [
 ]
 
 
-def build_server():
-    """Construct the MCP server (SDK 2.x) with all tools registered."""
-    from mcp.server.mcpserver import MCPServer
+_INSTRUCTIONS = (
+    "Riposte is a DSL for Pokémon battle policies you have never seen. Discover it with "
+    "these tools: start with language_overview(), then list_topics()/get_topic(), "
+    "predicate_reference(name) for signatures, explain_error(code) when the compiler rejects "
+    "your program, and check_program(source) to compile and see diagnostics."
+)
 
-    server = MCPServer(
-        "riposte",
-        instructions=(
-            "Riposte is a DSL for Pokémon battle policies you have never seen. Discover it "
-            "with these tools: start with language_overview(), then list_topics()/get_topic(), "
-            "predicate_reference(name) for signatures, explain_error(code) when the compiler "
-            "rejects your program, and check_program(source) to compile and see diagnostics."
-        ),
-    )
+
+def build_server():
+    """Construct the MCP server with all tools registered.
+
+    Works across MCP SDK versions: the ergonomic server is `FastMCP` on 1.x and `MCPServer`
+    on 2.x — same `add_tool`/`run("stdio")`/`list_tools` surface. We must run under 1.x
+    alongside langchain-mcp-adapters (the eval driver), which pins mcp<2, so FastMCP is tried
+    first.
+    """
+    try:
+        from mcp.server.fastmcp import FastMCP as _Server
+    except ImportError:
+        from mcp.server.mcpserver import MCPServer as _Server
+
+    server = _Server("riposte", instructions=_INSTRUCTIONS)
     for fn in TOOLS:
         server.add_tool(fn)
     return server

@@ -40,4 +40,6 @@ Register with an MCP client (stdio), e.g.:
 
 Whether `check_program` is offered in C2 (discovery-only) or only C4 (discovery + repair) is
 an eval-design decision (SPEC §8, D-4; default: C4 only). The tool exists here; the eval
-harness decides which condition exposes it. Built on the MCP Python SDK 2.x (`MCPServer`).
+harness decides which condition exposes it. `build_server()` works across MCP SDK versions
+(`FastMCP` on 1.x, `MCPServer` on 2.x); pinned to mcp 1.x so it shares a venv with the eval
+stack's `langchain-mcp-adapters`.

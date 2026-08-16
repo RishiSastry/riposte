@@ -3,8 +3,10 @@ name = "riposte-mcp"
 version = "0.1.0"
 description = "Progressive language-discovery MCP server for Riposte (SPEC §8)."
 requires-python = ">=3.11"
+# FastMCP (mcp 1.x) or MCPServer (mcp 2.x) — build_server() handles both. Pinned <2 so it
+# coexists with the eval stack's langchain-mcp-adapters, which requires mcp 1.x.
 dependencies = [
-    "mcp>=2.0",
+    "mcp>=1.2,<2",
 ]
 
 [project.scripts]
