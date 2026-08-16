@@ -89,7 +89,7 @@ class DeepAgentsDriver:
         instructions = _SEED_INSTRUCTIONS.format(repair_clause=repair_clause)
 
         model = ChatAnthropic(model=self._model, max_tokens=8000)
-        agent = create_deep_agent(tools=tools, model=model, instructions=instructions)
+        agent = create_deep_agent(tools=tools, model=model, system_prompt=instructions)
         result = await agent.ainvoke({"messages": [{"role": "user", "content": brief}]})
 
         messages = result.get("messages", []) if isinstance(result, dict) else []
