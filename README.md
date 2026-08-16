@@ -104,7 +104,8 @@ lose.
 | **Runtime** `riposte-rt` (Python) — IR interpreter, gen-9 damage calc, poke-env `RipostePlayer` | ✅ M0+M2 |
 | **MCP server** `riposte-mcp` — progressive language discovery (`get_topic`, `predicate_reference`, `explain_error`, `check_program`) | ✅ |
 | **Eval framework** `evalkit` — async-parallel Gherkin runner over a `deepagents`+MCP agent; grades compile-pass, win rate vs baselines, quirk budget | ✅ |
-| Full C1–C4 × models × k-task matrix + eval-learnings blog | ⏳ next |
+| **C1–C4 × models × k-task matrix** — first real result ([`writeup/findings.md`](./writeup/findings.md)): *a repair loop dominates the delivery channel; docs-dump + repair is the cost-efficient sweet spot* | ✅ |
+| Larger task set + eval-learnings blog | ⏳ next |
 
 ## Repo layout
 

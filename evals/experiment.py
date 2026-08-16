@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
 import statistics
 import time
 from pathlib import Path
@@ -82,10 +83,9 @@ async def run_cell(task, cond, model, sample, docs, sem, n, baseline):
             )
             if policy is not None:
                 won, total = await _play(policy, baseline, n)
-                cell["win_rate"] = won / total if total else None
-                cell["battles"] = f"{won}/{total}"
+                cell.update(won=won, total=total, win_rate=(won / total if total else None))
             else:
-                cell["win_rate"] = None
+                cell.update(won=0, total=0, win_rate=None)
         except Exception as e:  # noqa: BLE001 — one cell failing shouldn't kill the matrix
             cell["error"] = f"{type(e).__name__}: {e}"
         print(
@@ -100,24 +100,55 @@ def _avg(xs):
     return round(statistics.fmean(xs), 3) if xs else None
 
 
+def _wilson(k, n, z=1.96):
+    """Wilson 95% score interval for k/n. Returns (p, lo, hi) as fractions."""
+    if not n:
+        return None, None, None
+    p = k / n
+    d = 1 + z * z / n
+    center = (p + z * z / (2 * n)) / d
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return p, max(0.0, center - half), min(1.0, center + half)
+
+
+def _pct_ci(k, n):
+    p, lo, hi = _wilson(k, n)
+    return "—" if p is None else f"{p:.0%} [{lo:.0%}–{hi:.0%}]"
+
+
+def _metrics(cc) -> str:
+    """The four metric cells (no label): compile-pass | quirk | win-rate | tokens."""
+    passed = sum(1 for c in cc if c.get("compiled"))
+    quirk = _avg([len(c.get("quirk_errors", [])) for c in cc])
+    won = sum(c.get("won", 0) for c in cc if c.get("compiled"))
+    tot = sum(c.get("total", 0) for c in cc if c.get("compiled"))
+    toks = _avg([c.get("tokens") for c in cc])
+    return f"{_pct_ci(passed, len(cc))} | {quirk} | {_pct_ci(won, tot)} | {toks:.0f}"
+
+
 def summarize(cells) -> str:
+    cells = [c for c in cells if "error" not in c]
     conds = sorted({c["condition"] for c in cells})
-    lines = ["| condition | compile-pass | avg quirk-errs | win-rate (compiled) | avg tool-calls* | avg tokens |",
-             "|---|---|---|---|---|---|"]
+    models = sorted({c["model"] for c in cells})
+
+    out = ["## By condition (pooled over tasks + models)", "",
+           "| condition | compile-pass [95% CI] | avg quirk-errs | win-rate [95% CI] | avg tokens |",
+           "|---|---|---|---|---|"]
     for cond in conds:
-        cc = [c for c in cells if c["condition"] == cond and "error" not in c]
-        if not cc:
-            continue
-        compile_pass = _avg([1.0 if c.get("compiled") else 0.0 for c in cc])
-        quirk = _avg([len(c.get("quirk_errors", [])) for c in cc])
-        win = _avg([c["win_rate"] for c in cc if c.get("compiled")])
-        toks = _avg([c.get("tokens") for c in cc])
-        lines.append(
-            f"| {cond} | {compile_pass:.0%} | {quirk} | "
-            f"{('%.0f%%' % (win*100)) if win is not None else '—'} | — | {toks:.0f} |"
-        )
-    lines.append("\n\\* tool-calls omitted from summary; per-cell in the JSON.")
-    return "\n".join(lines)
+        out.append(f"| {cond} | {_metrics([c for c in cells if c['condition'] == cond])} |")
+
+    out += ["", "## By condition × model", "",
+            "| condition | model | compile-pass [95% CI] | avg quirk-errs | win-rate [95% CI] | avg tokens |",
+            "|---|---|---|---|---|---|"]
+    for cond in conds:
+        for m in models:
+            cc = [c for c in cells if c["condition"] == cond and c["model"] == m]
+            if cc:
+                out.append(f"| {cond} | {m} | {_metrics(cc)} |")
+    out.append("\nWin-rate is pooled over all battles of compiled programs (Wilson 95% CI); "
+               "compile-pass CI is over cells. Per-cell detail (tool calls, repair rounds, "
+               "source) in the JSON.")
+    return "\n".join(out)
 
 
 async def main():
