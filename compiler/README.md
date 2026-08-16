@@ -11,7 +11,7 @@ with the hand-written parser.
 | `lexer`              | logos tokenizer (keywords per §4.7; else `Ident`).                  |
 | `ast`                | Syntax tree (spans on every node; no type info).                    |
 | `parser`             | Hand-written recursive descent; recovers on `rule`/`otherwise`/`on`.|
-| `typeck`             | **M1: name/scope + structure checks.** Epistemic types are M2.       |
+| `typeck`             | Name/scope + structure + **M2 epistemic types** (fact/est, tribool). |
 | `emit`               | Lower AST → `policy.json` IR (mirrors `runtime/riposte_rt/ir.py`).   |
 | `riposte-c`          | CLI + `compile()` library entry point.                              |
 
@@ -23,19 +23,21 @@ cargo build --release
 # writes hazard_control.policy.json + hazard_control.diag.json next to the source
 ```
 
-## Status: M1 complete ✓
+## Status: M1 + M2 complete ✓
 
 - Lexer, recursive-descent parser with error recovery, AST, `GRAMMAR.ebnf`.
 - `diag.json` with stable codes/spans/hints and the `docs_tool` MCP hook.
 - Name/scope + structure checks: **E020** (unrevealed info), **E022** (unknown predicate),
-  **E023** (unbound `it`), **E040** (missing `otherwise`), **E041** (illegal action in
-  `forced_switch`). Types are **stubbed** (E030/E031/E032 wired but inert until M2).
+  **E023** (unbound `it`), **E040** (missing `otherwise`), **E041** (illegal action).
+- **M2 epistemic type system**: fact/est propagation, `tribool` + mandatory resolvers
+  (**E030** unresolved tribool, **E031** redundant resolver), categorical effectiveness
+  (**E032**), predicate calls checked against the shared **`predicates.toml`** (**E022**/
+  **E033** type / **E034** arity). "Can't express the lie": peeking is unrepresentable and
+  treating uncertainty as certainty is a static error.
 - Compiles the SPEC §4.1 example to IR; the output **validates against the runtime pydantic
-  schema** (the compiler↔runtime contract).
-- Golden snapshot tests (`insta`) for diagnostics; `cargo insta review` to update.
+  schema** and **plays real battles** with the runtime's gen-9 damage calc.
+- Golden snapshot tests (`insta`) for all diagnostics incl. the quirks; `cargo insta review`.
 
-## M2 (next)
+## M3+ (deferred per build order: DSL → MCP → eval kit)
 
-fact/est propagation, `tribool` + resolver checking (E030/E031), categorical effectiveness
-(E032), and a shared `predicates.toml` so the Rust signatures and the Python runtime
-implementations can't drift.
+Next up is the MCP server (progressive language discovery). The eval harness/kit comes last.

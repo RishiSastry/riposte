@@ -7,3 +7,5 @@ license.workspace = true
 [dependencies]
 riposte-ast = { workspace = true }
 riposte-diagnostics = { workspace = true }
+serde = { workspace = true }
+toml = "0.8"

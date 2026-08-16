@@ -1,17 +1,32 @@
 """Predicate implementations + the tribool type.
 
-⚠️ M0 SCOPE: the damage/speed models here are deliberately COARSE heuristics, good enough to
-drive a policy that beats RandomPlayer and to exercise the fact/est/tribool machinery
-end-to-end. The real gen-9 damage formula (STAB, type chart, boosts, burn, weather, screens,
-hand-checked validation) is an M2 deliverable (SPEC §6). Every M0 shortcut is marked
-`TODO(M2)`.
+The Python side of the `predicates.toml` contract (SPEC §4.4): every predicate the compiler
+type-checks is implemented here with matching arity. Damage uses the real gen-9 calc in
+`damagecalc.py` (M2). Speed estimation remains a documented simplification (TODO(M2+):
+tailwind/trick-room in `outspeeds`).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from poke_env.battle import Move, MoveCategory, Pokemon, PokemonType
+from poke_env.battle import Move, MoveCategory, Pokemon, PokemonType, SideCondition
+
+from . import damagecalc
+from .damagecalc import FieldCtx
+
+# hazard / screen atom (as written in .rpo, lowered to a str by the compiler) → poke-env enum.
+_HAZARDS = {
+    "stealth_rock": SideCondition.STEALTH_ROCK,
+    "spikes": SideCondition.SPIKES,
+    "toxic_spikes": SideCondition.TOXIC_SPIKES,
+    "sticky_web": SideCondition.STICKY_WEB,
+}
+_SCREENS = {
+    "reflect": SideCondition.REFLECT,
+    "light_screen": SideCondition.LIGHT_SCREEN,
+    "aurora_veil": SideCondition.AURORA_VEIL,
+}
 
 # ─────────────────────────────── tribool ────────────────────────────────
 
@@ -117,33 +132,36 @@ def type_multiplier(attacking_type: PokemonType, defender: Pokemon) -> float:
 
 
 # ───────────────────────────── damage calc ──────────────────────────────
-
-_SCALE = 220.0  # M0 tuning constant so a neutral 80 BP move ≈ 0.36 of max HP.
-
-
-def damage_frac(move: Move, attacker: Pokemon, defender: Pokemon) -> tuple[float, float, float]:
-    """(lo, mid, hi) fraction of the DEFENDER's max HP (SPEC quirk Q1: everything is a
-    fraction). M0 heuristic: base_power · STAB · type-effectiveness, scaled, with an
-    85%–100% roll band standing in for both damage rolls and defender-bulk uncertainty.
-
-    TODO(M2): real formula with attacker/defender stats, boosts, burn, weather, screens.
-    """
-    if move.category == MoveCategory.STATUS or not move.base_power:
-        return 0.0, 0.0, 0.0
-    stab = 1.5 if move.type in (attacker.type_1, attacker.type_2) else 1.0
-    eff = defender.damage_multiplier(move)
-    hi = move.base_power * stab * eff / _SCALE
-    lo = hi * 0.85
-    mid = hi * 0.925
-    return lo, mid, hi
+# Real gen-9 formula lives in damagecalc.py (M2). These are thin wrappers threading the
+# battle-derived field context (weather/screens) through.
 
 
-def best_move(attacker: Pokemon, defender: Pokemon, moves: list[Move]) -> tuple[Move | None, float]:
+def damage_frac(
+    move: Move, attacker: Pokemon, defender: Pokemon, battle, field=None
+) -> tuple[float, float, float]:
+    """(lo, mid, hi) damage as a fraction of the defender's max HP (quirk Q1)."""
+    return damagecalc.damage_fraction(move, attacker, defender, battle, field)
+
+
+def damage_frac_by_id(move_id: str, attacker: Pokemon, defender: Pokemon, battle) -> float:
+    """Runtime form of damage_frac: resolve the move by id off the attacker and return the
+    median fraction (D-2 median convention; the compiler tracks the full est range)."""
+    move = attacker.moves.get(move_id)
+    if move is None:
+        return 0.0
+    _, mid, _ = damage_frac(move, attacker, defender, battle)
+    return mid
+
+
+def best_move(
+    attacker: Pokemon, defender: Pokemon, moves: list[Move], battle, field=None
+) -> tuple[Move | None, float]:
     """argmax expected (median) damage_frac over `moves` (SPEC: strongest_move selector)."""
+    field = field or FieldCtx.from_battle(battle)
     best: Move | None = None
     best_mid = -1.0
     for m in moves:
-        _, mid, _ = damage_frac(m, attacker, defender)
+        _, mid, _ = damage_frac(m, attacker, defender, battle, field)
         if mid > best_mid:
             best, best_mid = m, mid
     return best, max(best_mid, 0.0)
@@ -152,16 +170,34 @@ def best_move(attacker: Pokemon, defender: Pokemon, moves: list[Move]) -> tuple[
 # ──────────────────────────── predicates ────────────────────────────────
 
 
-def can_ko(attacker: Pokemon, defender: Pokemon, moves: list[Move]) -> Tri:
-    """tribool: max-roll damage of attacker's best move ≥ defender hp_fraction (SPEC §4.4)."""
+def _best_damage_bounds(
+    attacker: Pokemon, defender: Pokemon, moves: list[Move], battle, field
+) -> tuple[float, float, float]:
+    """(lo, mid, hi) damage fraction of the attacker's most damaging move (by hi roll)."""
     lo = hi = mid = 0.0
     for m in moves:
-        l, mi, h = damage_frac(m, attacker, defender)
+        l, mi, h = damage_frac(m, attacker, defender, battle, field)
         if h > hi:
             lo, mid, hi = l, mi, h
+    return lo, mid, hi
+
+
+def can_ko(attacker: Pokemon, defender: Pokemon, moves: list[Move], battle) -> Tri:
+    """tribool: max-roll damage of attacker's best move ≥ defender hp_fraction (SPEC §4.4)."""
+    field = FieldCtx.from_battle(battle)
+    lo, mid, hi = _best_damage_bounds(attacker, defender, moves, battle, field)
     hp = defender.current_hp_fraction
     # opp_favorable = opponent bulky (our low roll); my_favorable = our high roll.
     return Tri(median=mid >= hp, opp_favorable=lo >= hp, my_favorable=hi >= hp)
+
+
+def guaranteed_ko(attacker: Pokemon, defender: Pokemon, moves: list[Move], battle) -> Tri:
+    """tribool: min-roll damage of attacker's best move ≥ defender hp_fraction (SPEC §4.4)."""
+    field = FieldCtx.from_battle(battle)
+    lo, mid, hi = _best_damage_bounds(attacker, defender, moves, battle, field)
+    hp = defender.current_hp_fraction
+    # guaranteed uses the low roll: yes only if even our weakest roll KOs.
+    return Tri(median=lo >= hp, opp_favorable=lo >= hp, my_favorable=mid >= hp)
 
 
 def outspeeds(a: Pokemon, b: Pokemon) -> Tri:
@@ -186,10 +222,53 @@ def is_immune(mon: Pokemon, atk_type: PokemonType) -> bool:
     return mon.damage_multiplier(atk_type) == 0
 
 
-def matchup_score(mine: Pokemon, opp: Pokemon, my_moves: list[Move]) -> float:
+def knows(mon: Pokemon, move_id: str) -> bool:
+    """The (own) mon has the given move id (SPEC §4.4)."""
+    return move_id in mon.moves
+
+
+def revealed(mon: Pokemon, move_id: str) -> bool:
+    """The opponent has revealed the given move id — the only honest opponent-move query."""
+    return move_id in mon.moves
+
+
+def _side_conditions(is_opponent: bool, battle) -> dict:
+    return battle.opponent_side_conditions if is_opponent else battle.side_conditions
+
+
+def has_hazard(is_opponent: bool, hazard: str, battle) -> bool:
+    sc = _side_conditions(is_opponent, battle)
+    return _HAZARDS.get(hazard) in sc
+
+
+def hazard_layers(is_opponent: bool, hazard: str, battle) -> int:
+    sc = _side_conditions(is_opponent, battle)
+    return sc.get(_HAZARDS.get(hazard), 0)
+
+
+def has_screen(is_opponent: bool, screen: str, battle) -> bool:
+    sc = _side_conditions(is_opponent, battle)
+    return _SCREENS.get(screen) in sc
+
+
+def hazard_damage_on_switch(mon: Pokemon, battle) -> float:
+    """Fraction of max HP `mon` loses switching into OUR-side hazards (own hazards are facts).
+    Approximate (M2): Stealth Rock scaled by Rock effectiveness; Spikes by layers if grounded."""
+    sc = battle.side_conditions
+    dmg = 0.0
+    if SideCondition.STEALTH_ROCK in sc:
+        dmg += 0.125 * mon.damage_multiplier(PokemonType.ROCK)
+    grounded = PokemonType.FLYING not in (mon.type_1, mon.type_2)
+    if grounded and SideCondition.SPIKES in sc:
+        layers = sc.get(SideCondition.SPIKES, 1)
+        dmg += {1: 1 / 8, 2: 1 / 6, 3: 1 / 4}.get(layers, 1 / 8)
+    return min(dmg, 1.0)
+
+
+def matchup_score(mine: Pokemon, opp: Pokemon, my_moves: list[Move], battle) -> float:
     """Composite used as a `best ... by` key (SPEC §4.4). Offense − incoming threat + hp/speed
     nudges. Coarse by design; it only needs to order switch candidates sensibly."""
-    _, offense = best_move(mine, opp, my_moves) if my_moves else (None, 0.0)
+    _, offense = best_move(mine, opp, my_moves, battle) if my_moves else (None, 0.0)
     threat = max(
         (type_multiplier(t, mine) for t in (opp.type_1, opp.type_2) if t is not None),
         default=1.0,

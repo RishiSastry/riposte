@@ -1,0 +1,23 @@
+---
+source: crates/riposte-c/tests/snapshots.rs
+expression: report(src)
+---
+{
+  "diagnostics": [
+    {
+      "code": "E030",
+      "docs_tool": "explain_error:E030",
+      "hint": "wrap in one of likely(...), worst_case(...), best_case(...)",
+      "message": "condition has type tribool; `when` requires bool",
+      "severity": "error",
+      "span": {
+        "col": 16,
+        "file": "bot.rpo",
+        "len": 34,
+        "line": 3
+      }
+    }
+  ],
+  "status": "error",
+  "version": "0.1"
+}

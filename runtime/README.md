@@ -6,7 +6,8 @@ this package *interprets* it and plays battles via poke-env. See [SPEC.md §6](.
 | Module            | Role                                                                    |
 |-------------------|-------------------------------------------------------------------------|
 | `ir.py`           | Policy IR schema (pydantic, versioned) — the compiler↔runtime contract. |
-| `predicates.py`   | Predicate library + the `Tri` tribool type; damage/speed/effectiveness. |
+| `predicates.py`   | Predicate library + the `Tri` tribool type. Python side of `predicates.toml`. |
+| `damagecalc.py`   | **M2:** real gen-9 damage formula (stats, STAB, type chart, boosts, burn, weather, screens). |
 | `interp.py`       | Evaluate the condition expr tree; execute actions → poke-env orders.     |
 | `player.py`       | `RipostePlayer(Player)`: block select, top-down rules, fallback, traces. |
 
@@ -25,22 +26,21 @@ python scripts/m0_gate.py --n 100            # vs RandomPlayer (the gate)
 python scripts/m0_gate.py --n 100 --opponent max   # vs MaxBasePowerPlayer
 ```
 
-## ⚠️ Deliberate M0 shortcuts (to replace in M2)
+## M2 status: real damage calc ✓
 
-These keep the skeleton small while exercising the full IR→interp→battle path. All are
-marked `TODO(M2)` in code; the real versions land with the type system + predicate work:
+`damagecalc.py` implements the gen-9 formula (validated against hand-checked textbook cases
+in `tests/test_damagecalc.py`). Predicate names/arities are checked against the shared
+`predicates.toml` by `tests/test_predicates_toml.py` so the compiler and runtime can't
+drift. Run tests: `python -m pytest tests/ -q`.
 
-- **Damage calc is a coarse heuristic** (`base_power · STAB · type-eff`, scaled, with an
-  85–100% roll band standing in for both damage rolls *and* defender-bulk uncertainty). The
-  real gen-9 formula (stats, boosts, burn, weather, screens; hand-checked cases) is M2.
-- **Opponent stat ranges** use a wide EV/IV/nature envelope, not randombattle-constrained
-  spreads.
-- **`outspeeds`** ignores tailwind / trick room.
-- The `Tri` tribool folds defender-bulk uncertainty into the roll band rather than modeling
-  the est range per stat.
+### Remaining documented simplifications
 
-## Note for the compiler (M1/M2)
+- **Opponent stat/HP ranges** use a wide EV/IV/nature envelope, not randombattle-constrained
+  spreads (TODO(M2+)).
+- **`outspeeds`** ignores tailwind / trick room (TODO(M2+)).
+- **Unknown items/abilities** are ignored in the damage calc (decision D-3, v1 default).
+- Runtime est-range comparisons on `damage_frac` use the median (D-2); the *compiler* tracks
+  the full est range and enforces resolver discipline.
 
-`ir.py` is the authoritative IR shape the emitter must target. Predicate *signatures* will
-also live in a shared `predicates.toml` (SPEC §4.4) so Rust and Python don't drift; the
-implementations here are the Python side of that contract.
+`ir.py` is the authoritative IR shape the emitter targets; `predicates.toml` (repo root) is
+the shared signature contract (SPEC §4.4).

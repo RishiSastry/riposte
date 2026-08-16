@@ -64,6 +64,36 @@ fn unknown_predicate_e022() {
 }
 
 #[test]
+fn unresolved_tribool_e030() {
+    // can_ko is tribool; using it in `when` without a resolver is E030.
+    let src = "bot \"x\" format gen9randombattle\n\
+               on turn:\n\
+               \x20 rule a: when can_ko(my.active, opponent.active) do use strongest_move against opponent.active\n\
+               \x20 otherwise: do use strongest_move against opponent.active\n";
+    insta::assert_json_snapshot!(report(src));
+}
+
+#[test]
+fn redundant_resolver_e031() {
+    // resists returns bool (a fact); wrapping it in likely(...) is E031.
+    let src = "bot \"x\" format gen9randombattle\n\
+               on turn:\n\
+               \x20 rule a: when likely(resists(my.active, opponent.active.primary_type)) do use strongest_move against opponent.active\n\
+               \x20 otherwise: do use strongest_move against opponent.active\n";
+    insta::assert_json_snapshot!(report(src));
+}
+
+#[test]
+fn categorical_effectiveness_e032() {
+    // effectiveness is categorical; comparing it with a number is E032.
+    let src = "bot \"x\" format gen9randombattle\n\
+               on turn:\n\
+               \x20 rule a: when effectiveness(opponent.active.primary_type, my.active) > 2 do use strongest_move against opponent.active\n\
+               \x20 otherwise: do use strongest_move against opponent.active\n";
+    insta::assert_json_snapshot!(report(src));
+}
+
+#[test]
 fn parse_recovery_reports_multiple_e012() {
     let src = "bot \"x\" format gen9randombattle\n\
                on turn:\n\

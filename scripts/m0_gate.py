@@ -19,19 +19,19 @@ from poke_env.player import MaxBasePowerPlayer, RandomPlayer, SimpleHeuristicsPl
 from riposte_rt.player import RipostePlayer
 
 FORMAT = "gen9randombattle"
-POLICY = "examples/m0_skeleton.policy.json"
+DEFAULT_POLICY = "examples/m0_skeleton.policy.json"
 
 OPPONENTS = {"random": RandomPlayer, "max": MaxBasePowerPlayer, "heur": SimpleHeuristicsPlayer}
 
 
-async def run(n: int, opp_key: str, trace: str | None) -> tuple[int, int, int, int]:
+async def run(n: int, opp_key: str, trace: str | None, policy: str) -> tuple[int, int, int, int]:
     common = dict(
         battle_format=FORMAT,
         server_configuration=LocalhostServerConfiguration,
         max_concurrent_battles=10,
     )
     riposte = RipostePlayer.from_policy_file(
-        POLICY,
+        policy,
         account_configuration=AccountConfiguration("riposte-m0", None),
         trace_path=trace,
         **common,
@@ -49,9 +49,10 @@ def main() -> None:
     ap.add_argument("--n", type=int, default=100)
     ap.add_argument("--opponent", choices=list(OPPONENTS), default="random")
     ap.add_argument("--trace", default=None, help="optional JSONL trace path")
+    ap.add_argument("--policy", default=DEFAULT_POLICY, help="policy.json to play")
     args = ap.parse_args()
 
-    won, lost, fb, decisions = asyncio.run(run(args.n, args.opponent, args.trace))
+    won, lost, fb, decisions = asyncio.run(run(args.n, args.opponent, args.trace, args.policy))
     total = won + lost
     wr = won / total if total else 0.0
     fb_rate = fb / decisions if decisions else 0.0

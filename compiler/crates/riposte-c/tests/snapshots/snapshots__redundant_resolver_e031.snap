@@ -1,0 +1,23 @@
+---
+source: crates/riposte-c/tests/snapshots.rs
+expression: report(src)
+---
+{
+  "diagnostics": [
+    {
+      "code": "E031",
+      "docs_tool": "explain_error:E031",
+      "hint": "drop the resolver; it is only for tribool (est) comparisons",
+      "message": "resolver applied to a value that is already a fact",
+      "severity": "error",
+      "span": {
+        "col": 16,
+        "file": "bot.rpo",
+        "len": 56,
+        "line": 3
+      }
+    }
+  ],
+  "status": "error",
+  "version": "0.1"
+}

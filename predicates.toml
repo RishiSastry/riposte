@@ -1,0 +1,95 @@
+# predicates.toml — single source of truth for Riposte predicate signatures (SPEC §4.4).
+#
+# Read by BOTH the Rust type checker (compiler/crates/typeck) and the Python runtime
+# (runtime/riposte_rt) so predicate signatures can never drift between the compiler that
+# type-checks calls and the interpreter that executes them.
+#
+# Each [predicates.NAME] entry:
+#   params = ordered list of parameter base types.
+#   ret    = return type. May be prefixed "est " to mark an estimate; "tribool"/"bool"/"eff"
+#            carry their own certainty. A predicate over ANY est argument is honest and
+#            returns est/tribool (SPEC §4.2 rule 4) — encoded directly in `ret` here.
+#   infix  = true for `a NAME b` infix predicates (outspeeds, knows). Optional, default false.
+#   doc    = one-line semantics (surfaced by the MCP predicate_reference tool).
+#
+# Base types: num frac bool tribool type status mon move eff str side hazard screen
+# (kind: bare = fact; "est" prefix = estimate).
+
+schema_version = "0.1"
+
+[predicates.damage_frac]
+params = ["move", "mon", "mon"]
+ret = "est frac"
+doc = "Min/max damage roll as a fraction of the defender's max HP, via the gen-9 formula (STAB, type effectiveness, boosts, weather, screens, burn). Fraction, never raw HP (quirk Q1)."
+
+[predicates.can_ko]
+params = ["mon", "mon"]
+ret = "tribool"
+doc = "Max-roll damage of the attacker's best move >= the defender's hp_fraction. tribool because the opponent's Def/SpD are estimates."
+
+[predicates.guaranteed_ko]
+params = ["mon", "mon"]
+ret = "tribool"
+doc = "Min-roll damage of the attacker's best move >= the defender's hp_fraction."
+
+[predicates.outspeeds]
+params = ["mon", "mon"]
+ret = "tribool"
+infix = true
+doc = "a is faster than b, post-boost, post-paralysis, tailwind/trick-room aware. tribool because opponent Speed is an estimate range."
+
+[predicates.effectiveness]
+params = ["type", "mon"]
+ret = "eff"
+doc = "Categorical type effectiveness of an attacking type against a defender: immune | strongly_resisted | resisted | neutral | super | overwhelming (quirk Q2). Never a number."
+
+[predicates.resists]
+params = ["mon", "type"]
+ret = "bool"
+doc = "The mon takes <1x from the given attacking type (and is not immune)."
+
+[predicates.is_immune]
+params = ["mon", "type"]
+ret = "bool"
+doc = "The mon takes 0x from the given attacking type."
+
+[predicates.hazard_damage_on_switch]
+params = ["mon"]
+ret = "frac"
+doc = "Fraction of max HP the mon loses switching into current own-side hazards. Fact — own hazards are known."
+
+[predicates.matchup_score]
+params = ["mon", "mon"]
+ret = "est num"
+doc = "Composite score of a vs b (offense both directions, speed, hp). Exists mainly as a `best ... by` sort key; est because it folds in opponent estimates."
+
+[predicates.hp_fraction]
+params = ["mon"]
+ret = "frac"
+doc = "The mon's current HP as a fraction of its max (quirk Q1). Also available as a field (my.active.hp_fraction)."
+
+[predicates.knows]
+params = ["mon", "str"]
+ret = "bool"
+infix = true
+doc = "The (own) mon has the given move id. `my.active knows \"stealthrock\"`."
+
+[predicates.revealed]
+params = ["mon", "str"]
+ret = "bool"
+doc = "The opponent has revealed the given move id this battle. The only honest way to ask about opponent moves — opponent.active.moves is unrevealed (E020)."
+
+[predicates.has_hazard]
+params = ["side", "hazard"]
+ret = "bool"
+doc = "The side has the given entry hazard (stealth_rock, spikes, toxic_spikes, sticky_web)."
+
+[predicates.hazard_layers]
+params = ["side", "hazard"]
+ret = "num"
+doc = "Number of layers of the given hazard on the side (e.g. spikes 0-3)."
+
+[predicates.has_screen]
+params = ["side", "screen"]
+ret = "bool"
+doc = "The side has the given screen up (reflect, light_screen, aurora_veil)."

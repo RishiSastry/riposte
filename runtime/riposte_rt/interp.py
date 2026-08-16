@@ -32,6 +32,13 @@ class Ctx:
     it: Optional[Pokemon] = None  # bound by exists / switch_best
 
 
+@dataclass(frozen=True)
+class Side:
+    """A `my.side` / `opponent.side` reference (SPEC §4.3), passed to side predicates."""
+
+    is_opponent: bool
+
+
 class InterpError(Exception):
     pass
 
@@ -69,15 +76,19 @@ def eval_expr(node: Any, ctx: Ctx) -> Any:
         return node.value
 
     if k == "ref":
+        path = node.path
+        # side reference: my.side / opponent.side
+        if len(path) == 2 and path[1] == "side":
+            return Side(is_opponent=(path[0] == "opponent"))
         # a mon (no trailing field) or a mon field
-        mon_len = 1 if node.path[0] == "it" else 2
-        mon = _resolve_mon(node.path[:mon_len], ctx)
-        rest = node.path[mon_len:]
+        mon_len = 1 if path[0] == "it" else 2
+        mon = _resolve_mon(path[:mon_len], ctx)
+        rest = path[mon_len:]
         if not rest:
             return mon
         if len(rest) == 1 and rest[0] in _MON_FIELDS:
             return _MON_FIELDS[rest[0]](mon)
-        raise InterpError(f"unknown field path: {node.path}")
+        raise InterpError(f"unknown field path: {path}")
 
     if k == "pred":
         return _eval_pred(node, ctx)
@@ -125,29 +136,69 @@ def eval_expr(node: Any, ctx: Ctx) -> Any:
 
 
 def _eval_pred(node: ir.Pred, ctx: Ctx) -> Any:
+    """Dispatch a predicate call. Names + arities match the shared predicates.toml."""
+    b = ctx.battle
     name = node.name
+
+    def ev(i: int) -> Any:
+        return eval_expr(node.args[i], ctx)
+
     if name == "can_ko":
-        a = eval_expr(node.args[0], ctx)
-        b = eval_expr(node.args[1], ctx)
-        return P.can_ko(a, b, _move_list(a, ctx.battle))
+        a, d = ev(0), ev(1)
+        return P.can_ko(a, d, _move_list(a, b), b)
+    if name == "guaranteed_ko":
+        a, d = ev(0), ev(1)
+        return P.guaranteed_ko(a, d, _move_list(a, b), b)
     if name == "resists":
-        mon = eval_expr(node.args[0], ctx)
-        typ = eval_expr(node.args[1], ctx)
-        return P.resists(mon, typ)
+        return P.resists(ev(0), ev(1))
     if name == "is_immune":
-        mon = eval_expr(node.args[0], ctx)
-        typ = eval_expr(node.args[1], ctx)
-        return P.is_immune(mon, typ)
+        return P.is_immune(ev(0), ev(1))
     if name == "matchup_score":
-        mine = eval_expr(node.args[0], ctx)
-        opp = eval_expr(node.args[1], ctx)
-        return P.matchup_score(mine, opp, _move_list(mine, ctx.battle))
+        m, o = ev(0), ev(1)
+        return P.matchup_score(m, o, _move_list(m, b), b)
     if name == "effectiveness":
-        # effectiveness(move_type, defender) -> category string
-        atk_type = eval_expr(node.args[0], ctx)
-        defender = eval_expr(node.args[1], ctx)
-        return P.eff_category(P.type_multiplier(atk_type, defender))
-    raise InterpError(f"unknown predicate: {name}")
+        return P.eff_category(P.type_multiplier(ev(0), ev(1)))
+    if name == "knows":
+        return P.knows(ev(0), ev(1))
+    if name == "revealed":
+        return P.revealed(ev(0), ev(1))
+    if name == "hp_fraction":
+        return ev(0).current_hp_fraction
+    if name == "hazard_damage_on_switch":
+        return P.hazard_damage_on_switch(ev(0), b)
+    if name == "has_hazard":
+        return P.has_hazard(ev(0).is_opponent, ev(1), b)
+    if name == "hazard_layers":
+        return P.hazard_layers(ev(0).is_opponent, ev(1), b)
+    if name == "has_screen":
+        return P.has_screen(ev(0).is_opponent, ev(1), b)
+    if name == "damage_frac":
+        return P.damage_frac_by_id(ev(0), ev(1), ev(2), b)
+    raise InterpError(f"unknown or unsupported predicate at runtime: {name}")
+
+
+# Predicate names the runtime dispatches (via _eval_pred, plus infix `outspeeds`). Kept in
+# sync with predicates.toml by tests/test_predicates_toml.py so the compiler and runtime
+# can't drift.
+SUPPORTED_PREDICATES = frozenset(
+    {
+        "can_ko",
+        "guaranteed_ko",
+        "resists",
+        "is_immune",
+        "matchup_score",
+        "effectiveness",
+        "knows",
+        "revealed",
+        "hp_fraction",
+        "hazard_damage_on_switch",
+        "has_hazard",
+        "hazard_layers",
+        "has_screen",
+        "damage_frac",
+        "outspeeds",
+    }
+)
 
 
 def _as_bool(v: Any) -> bool:
@@ -191,7 +242,7 @@ def execute_action(action: Any, ctx: Ctx, player: Any) -> Optional[Any]:
         if not battle.available_moves:
             return None
         target = _resolve_mon(action.target.path, ctx)
-        mv, _ = P.best_move(battle.active_pokemon, target, list(battle.available_moves))
+        mv, _ = P.best_move(battle.active_pokemon, target, list(battle.available_moves), battle)
         return _order(player, battle, mv, action.tera) if mv is not None else None
 
     if k == "switch_best":

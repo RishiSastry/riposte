@@ -65,8 +65,10 @@ codes! {
     E022 => ("E022", Severity::Error, "unknown predicate", None);
     E023 => ("E023", Severity::Error, "`it` used outside an exists/best binding", None);
     E030 => ("E030", Severity::Error, "condition has type tribool; `when` requires bool", Some("wrap in one of likely(...), worst_case(...), best_case(...)"));
-    E031 => ("E031", Severity::Error, "resolver applied to a value that is already a fact", None);
-    E032 => ("E032", Severity::Error, "effectiveness is categorical; compare with at_least/at_most", None);
+    E031 => ("E031", Severity::Error, "resolver applied to a value that is already a fact", Some("drop the resolver; it is only for tribool (est) comparisons"));
+    E032 => ("E032", Severity::Error, "effectiveness is categorical; compare with at_least/at_most", Some("e.g. effectiveness(m, d) at_least super"));
+    E033 => ("E033", Severity::Error, "type mismatch", None);
+    E034 => ("E034", Severity::Error, "wrong number of arguments", None);
     E040 => ("E040", Severity::Error, "block must end with an `otherwise` rule", Some("add `otherwise:` with a `do` action so the policy is total"));
     E041 => ("E041", Severity::Error, "illegal action for this block", Some("`on forced_switch` allows switch actions only"));
     W100 => ("W100", Severity::Warning, "unreachable rule shadowed by an earlier, more general rule", None);
