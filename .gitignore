@@ -1,0 +1,30 @@
+# ── Rust (compiler/) ──
+target/
+**/*.rs.bk
+Cargo.lock            # workspace app; keep only if we decide to pin — revisit at M1
+
+# ── Python (runtime/, mcp/, evalkit/, evals/) ──
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ── Eval artifacts ──
+*.sqlite
+*.parquet
+evals/runs/           # per-run battle logs, traces, results
+**/*.jsonl            # per-battle trajectory traces (regenerable)
+
+# ── Showdown server (cloned & pinned at M0) ──
+pokemon-showdown/
+
+# ── OS / editor ──
+.DS_Store
+.idea/
+.vscode/
+*.swp
