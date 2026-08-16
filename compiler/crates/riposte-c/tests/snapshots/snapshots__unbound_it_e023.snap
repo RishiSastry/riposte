@@ -1,0 +1,22 @@
+---
+source: crates/riposte-c/tests/snapshots.rs
+expression: report(src)
+---
+{
+  "diagnostics": [
+    {
+      "code": "E023",
+      "docs_tool": "explain_error:E023",
+      "message": "`it` used outside an exists/best binding",
+      "severity": "error",
+      "span": {
+        "col": 16,
+        "file": "bot.rpo",
+        "len": 2,
+        "line": 3
+      }
+    }
+  ],
+  "status": "error",
+  "version": "0.1"
+}

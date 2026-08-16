@@ -1,0 +1,10 @@
+[package]
+name = "riposte-parser"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+riposte-lexer = { workspace = true }
+riposte-ast = { workspace = true }
+riposte-diagnostics = { workspace = true }

@@ -1,7 +1,10 @@
 # ── Rust (compiler/) ──
 target/
 **/*.rs.bk
-Cargo.lock            # workspace app; keep only if we decide to pin — revisit at M1
+# Cargo.lock IS committed: the workspace ships a binary (riposte-c), so pin deps.
+
+# ── compiler-generated outputs (checked-in policies are hand-written examples) ──
+*.diag.json
 
 # ── Python (runtime/, mcp/, evalkit/, evals/) ──
 __pycache__/

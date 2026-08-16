@@ -1,0 +1,77 @@
+(* Riposte grammar (SPEC §4.7). AUTHORITATIVE: kept in sync with the hand-written
+   recursive-descent parser in crates/parser. If the parser and this file disagree, that is
+   a bug in one of them. Anka-informed: one canonical form per construct, verbose keywords,
+   no operator symbols beyond comparisons.
+
+   Notation: EBNF-ish. { x } = zero or more, [ x ] = optional, | = alternation,
+   ? ... ? = a lexical/terminal description. Whitespace and `#` line comments are
+   insignificant and may appear between any two tokens. *)
+
+(* ─────────────────────────── program structure ─────────────────────────── *)
+
+program        = header , { block } ;
+header         = "bot" , string , "format" , ident ;
+block          = "on" , event , ":" , { rule } ;
+event          = "turn" | "forced_switch" ;
+
+rule           = named_rule | otherwise_rule ;
+named_rule     = "rule" , ident , ":" , "when" , expr , "do" , action ;
+otherwise_rule = "otherwise" , ":" , "do" , action ;
+                 (* every block must end with exactly one otherwise_rule — enforced by
+                    the checker as E040, not by the grammar. *)
+
+(* ───────────────────────────────── actions ─────────────────────────────── *)
+
+action         = use_move | use_strongest | switch ;
+use_move       = "use" , string , [ with_tera ] ;
+use_strongest  = "use" , "strongest_move" , "against" , path , [ with_tera ] ;
+switch         = "switch_to" , "best" , ident , "by" , expr ;
+with_tera      = "with" , "tera" ;
+
+(* ─────────────────────────────── expressions ───────────────────────────── *)
+(* Precedence, loosest to tightest: or < and < not < infix < primary.
+   `infix` is non-associative: at most one infix operator per level. *)
+
+expr           = or_expr ;
+or_expr        = and_expr , { "or" , and_expr } ;
+and_expr       = not_expr , { "and" , not_expr } ;
+not_expr       = ( "not" , not_expr ) | infix_expr ;
+infix_expr     = primary , [ infix_tail ] ;
+infix_tail     = ( "outspeeds" , primary )
+               | ( "knows" , primary )
+               | ( ( "at_least" | "at_most" ) , ident )   (* effectiveness category *)
+               | ( cmp_op , primary ) ;
+cmp_op         = "=" | "!=" | "<" | "<=" | ">" | ">=" ;
+
+primary        = "(" , expr , ")"
+               | resolver
+               | exists
+               | string
+               | number
+               | path ;
+
+resolver       = ( "likely" | "worst_case" | "best_case" ) , "(" , expr , ")" ;
+exists         = "exists" , ident , ident , "where" , expr ;
+                 (* exists <domain> <binder> where <body> ; body extends to the end of the
+                    enclosing expression — parenthesize to bound it. *)
+
+path           = segment , { "." , segment } ;
+segment        = name , [ "(" , [ arg_list ] , ")" ] ;
+arg_list       = expr , { "," , expr } ;
+name           = ident | "it" ;
+
+number         = int | float ;
+
+(* ───────────────────────────────── lexical ─────────────────────────────── *)
+
+ident          = ? /[A-Za-z_][A-Za-z0-9_]*/ , excluding the reserved keywords ? ;
+string         = ? /"[^"\n]*"/ ? ;
+int            = ? /[0-9]+/ ? ;
+float          = ? /[0-9]+\.[0-9]+/ ? ;
+comment        = ? /#[^\n]*/  (skipped) ? ;
+
+keywords       = "bot" | "format" | "on" | "turn" | "forced_switch" | "rule"
+               | "otherwise" | "when" | "do" | "and" | "or" | "not" | "exists"
+               | "where" | "use" | "switch_to" | "best" | "by" | "against" | "with"
+               | "tera" | "likely" | "worst_case" | "best_case" | "at_least" | "at_most"
+               | "it" | "outspeeds" | "knows" ;

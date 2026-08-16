@@ -1,0 +1,22 @@
+---
+source: crates/riposte-c/tests/snapshots.rs
+expression: report(src)
+---
+{
+  "diagnostics": [
+    {
+      "code": "E022",
+      "docs_tool": "explain_error:E022",
+      "message": "unknown predicate `mega_ko`",
+      "severity": "error",
+      "span": {
+        "col": 23,
+        "file": "bot.rpo",
+        "len": 7,
+        "line": 3
+      }
+    }
+  ],
+  "status": "error",
+  "version": "0.1"
+}

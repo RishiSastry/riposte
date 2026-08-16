@@ -1,0 +1,106 @@
+---
+source: crates/riposte-c/tests/snapshots.rs
+expression: report(src)
+---
+{
+  "diagnostics": [
+    {
+      "code": "E010",
+      "docs_tool": "explain_error:E010",
+      "message": "unrecognized token",
+      "severity": "error",
+      "span": {
+        "col": 14,
+        "file": "bot.rpo",
+        "len": 1,
+        "line": 3
+      }
+    },
+    {
+      "code": "E010",
+      "docs_tool": "explain_error:E010",
+      "message": "unrecognized token",
+      "severity": "error",
+      "span": {
+        "col": 15,
+        "file": "bot.rpo",
+        "len": 1,
+        "line": 3
+      }
+    },
+    {
+      "code": "E010",
+      "docs_tool": "explain_error:E010",
+      "message": "unrecognized token",
+      "severity": "error",
+      "span": {
+        "col": 16,
+        "file": "bot.rpo",
+        "len": 1,
+        "line": 3
+      }
+    },
+    {
+      "code": "E010",
+      "docs_tool": "explain_error:E010",
+      "message": "unrecognized token",
+      "severity": "error",
+      "span": {
+        "col": 60,
+        "file": "bot.rpo",
+        "len": 1,
+        "line": 4
+      }
+    },
+    {
+      "code": "E010",
+      "docs_tool": "explain_error:E010",
+      "message": "unrecognized token",
+      "severity": "error",
+      "span": {
+        "col": 61,
+        "file": "bot.rpo",
+        "len": 1,
+        "line": 4
+      }
+    },
+    {
+      "code": "E010",
+      "docs_tool": "explain_error:E010",
+      "message": "unrecognized token",
+      "severity": "error",
+      "span": {
+        "col": 62,
+        "file": "bot.rpo",
+        "len": 1,
+        "line": 4
+      }
+    },
+    {
+      "code": "E012",
+      "docs_tool": "explain_error:E012",
+      "message": "expected an expression",
+      "severity": "error",
+      "span": {
+        "col": 18,
+        "file": "bot.rpo",
+        "len": 2,
+        "line": 3
+      }
+    },
+    {
+      "code": "E012",
+      "docs_tool": "explain_error:E012",
+      "message": "expected an action (`use` or `switch_to`)",
+      "severity": "error",
+      "span": {
+        "col": 1,
+        "file": "bot.rpo",
+        "len": 9,
+        "line": 5
+      }
+    }
+  ],
+  "status": "error",
+  "version": "0.1"
+}

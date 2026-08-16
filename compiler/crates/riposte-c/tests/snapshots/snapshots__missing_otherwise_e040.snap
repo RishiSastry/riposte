@@ -1,0 +1,23 @@
+---
+source: crates/riposte-c/tests/snapshots.rs
+expression: report(src)
+---
+{
+  "diagnostics": [
+    {
+      "code": "E040",
+      "docs_tool": "explain_error:E040",
+      "hint": "add `otherwise:` with a `do` action so the policy is total",
+      "message": "block must end with an `otherwise` rule",
+      "severity": "error",
+      "span": {
+        "col": 74,
+        "file": "bot.rpo",
+        "len": 0,
+        "line": 3
+      }
+    }
+  ],
+  "status": "error",
+  "version": "0.1"
+}

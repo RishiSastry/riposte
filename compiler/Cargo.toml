@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/diagnostics",
+    "crates/lexer",
+    "crates/ast",
+    "crates/parser",
+    "crates/typeck",
+    "crates/emit",
+    "crates/riposte-c",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.80"
+
+[workspace.dependencies]
+logos = "0.14"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+insta = { version = "1", features = ["json"] }
+
+# internal crates
+riposte-diagnostics = { path = "crates/diagnostics" }
+riposte-lexer = { path = "crates/lexer" }
+riposte-ast = { path = "crates/ast" }
+riposte-parser = { path = "crates/parser" }
+riposte-typeck = { path = "crates/typeck" }
+riposte-emit = { path = "crates/emit" }
+
+[profile.release]
+lto = true

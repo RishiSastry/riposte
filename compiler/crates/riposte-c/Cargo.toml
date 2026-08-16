@@ -1,0 +1,25 @@
+[package]
+name = "riposte-c"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "riposte_c"
+path = "src/lib.rs"
+
+[[bin]]
+name = "riposte-c"
+path = "src/main.rs"
+
+[dependencies]
+riposte-lexer = { workspace = true }
+riposte-parser = { workspace = true }
+riposte-typeck = { workspace = true }
+riposte-emit = { workspace = true }
+riposte-diagnostics = { workspace = true }
+clap = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

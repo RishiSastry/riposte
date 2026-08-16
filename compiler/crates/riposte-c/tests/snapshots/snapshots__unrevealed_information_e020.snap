@@ -1,0 +1,23 @@
+---
+source: crates/riposte-c/tests/snapshots.rs
+expression: report(src)
+---
+{
+  "diagnostics": [
+    {
+      "code": "E020",
+      "docs_tool": "explain_error:E020",
+      "hint": "opponent move sets are hidden; use `revealed_moves` or `revealed(...)`",
+      "message": "unrevealed information",
+      "severity": "error",
+      "span": {
+        "col": 16,
+        "file": "bot.rpo",
+        "len": 21,
+        "line": 3
+      }
+    }
+  ],
+  "status": "error",
+  "version": "0.1"
+}
