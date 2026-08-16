@@ -1,0 +1,27 @@
+bot "hazard_keeper" format gen9randombattle
+
+on turn:
+  rule set_stealth_rock:
+    when my.active knows "stealthrock" and not opponent.side.has_hazard(stealth_rock)
+    do use "stealthrock"
+
+  rule press_ko:
+    when likely(can_ko(my.active, opponent.active))
+    do use strongest_move against opponent.active
+
+  rule pivot_bad_matchup:
+    when worst_case(opponent.active outspeeds my.active)
+         and likely(can_ko(opponent.active, my.active))
+         and exists bench b where resists(b, opponent.active.primary_type)
+    do switch_to best bench by matchup_score(it, opponent.active)
+
+  otherwise:
+    do use strongest_move against opponent.active
+
+on forced_switch:
+  rule safe_pivot:
+    when exists bench b where resists(b, opponent.active.primary_type)
+    do switch_to best bench by matchup_score(it, opponent.active)
+
+  otherwise:
+    do switch_to best bench by hp_fraction(it)

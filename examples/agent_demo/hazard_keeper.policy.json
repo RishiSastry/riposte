@@ -1,0 +1,293 @@
+{
+  "header": {
+    "compiler_version": "0.1.0",
+    "format": "gen9randombattle",
+    "name": "hazard_keeper",
+    "source_hash": "108fa28b4351ec72"
+  },
+  "ir_version": "0.1",
+  "on_forced_switch": [
+    {
+      "action": {
+        "by": {
+          "args": [
+            {
+              "kind": "ref",
+              "path": [
+                "it"
+              ]
+            },
+            {
+              "kind": "ref",
+              "path": [
+                "opponent",
+                "active"
+              ]
+            }
+          ],
+          "kind": "pred",
+          "name": "matchup_score"
+        },
+        "domain": "bench",
+        "kind": "switch_best",
+        "order": "max"
+      },
+      "rule_name": "safe_pivot",
+      "when": {
+        "body": {
+          "args": [
+            {
+              "kind": "ref",
+              "path": [
+                "it"
+              ]
+            },
+            {
+              "kind": "ref",
+              "path": [
+                "opponent",
+                "active",
+                "primary_type"
+              ]
+            }
+          ],
+          "kind": "pred",
+          "name": "resists"
+        },
+        "domain": "bench",
+        "kind": "exists",
+        "var": "b"
+      }
+    },
+    {
+      "action": {
+        "by": {
+          "args": [
+            {
+              "kind": "ref",
+              "path": [
+                "it"
+              ]
+            }
+          ],
+          "kind": "pred",
+          "name": "hp_fraction"
+        },
+        "domain": "bench",
+        "kind": "switch_best",
+        "order": "max"
+      },
+      "rule_name": "otherwise",
+      "when": null
+    }
+  ],
+  "on_turn": [
+    {
+      "action": {
+        "kind": "use_move",
+        "move_id": "stealthrock",
+        "tera": false
+      },
+      "rule_name": "set_stealth_rock",
+      "when": {
+        "kind": "and",
+        "operands": [
+          {
+            "args": [
+              {
+                "kind": "ref",
+                "path": [
+                  "my",
+                  "active"
+                ]
+              },
+              {
+                "kind": "lit",
+                "type": "str",
+                "value": "stealthrock"
+              }
+            ],
+            "kind": "pred",
+            "name": "knows"
+          },
+          {
+            "kind": "not",
+            "operand": {
+              "args": [
+                {
+                  "kind": "ref",
+                  "path": [
+                    "opponent",
+                    "side"
+                  ]
+                },
+                {
+                  "kind": "lit",
+                  "type": "str",
+                  "value": "stealth_rock"
+                }
+              ],
+              "kind": "pred",
+              "name": "has_hazard"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "action": {
+        "kind": "use_strongest",
+        "target": {
+          "kind": "ref",
+          "path": [
+            "opponent",
+            "active"
+          ]
+        },
+        "tera": false
+      },
+      "rule_name": "press_ko",
+      "when": {
+        "arg": {
+          "args": [
+            {
+              "kind": "ref",
+              "path": [
+                "my",
+                "active"
+              ]
+            },
+            {
+              "kind": "ref",
+              "path": [
+                "opponent",
+                "active"
+              ]
+            }
+          ],
+          "kind": "pred",
+          "name": "can_ko"
+        },
+        "kind": "resolve",
+        "op": "likely"
+      }
+    },
+    {
+      "action": {
+        "by": {
+          "args": [
+            {
+              "kind": "ref",
+              "path": [
+                "it"
+              ]
+            },
+            {
+              "kind": "ref",
+              "path": [
+                "opponent",
+                "active"
+              ]
+            }
+          ],
+          "kind": "pred",
+          "name": "matchup_score"
+        },
+        "domain": "bench",
+        "kind": "switch_best",
+        "order": "max"
+      },
+      "rule_name": "pivot_bad_matchup",
+      "when": {
+        "kind": "and",
+        "operands": [
+          {
+            "arg": {
+              "kind": "outspeeds",
+              "left": {
+                "kind": "ref",
+                "path": [
+                  "opponent",
+                  "active"
+                ]
+              },
+              "right": {
+                "kind": "ref",
+                "path": [
+                  "my",
+                  "active"
+                ]
+              }
+            },
+            "kind": "resolve",
+            "op": "worst_case"
+          },
+          {
+            "arg": {
+              "args": [
+                {
+                  "kind": "ref",
+                  "path": [
+                    "opponent",
+                    "active"
+                  ]
+                },
+                {
+                  "kind": "ref",
+                  "path": [
+                    "my",
+                    "active"
+                  ]
+                }
+              ],
+              "kind": "pred",
+              "name": "can_ko"
+            },
+            "kind": "resolve",
+            "op": "likely"
+          },
+          {
+            "body": {
+              "args": [
+                {
+                  "kind": "ref",
+                  "path": [
+                    "it"
+                  ]
+                },
+                {
+                  "kind": "ref",
+                  "path": [
+                    "opponent",
+                    "active",
+                    "primary_type"
+                  ]
+                }
+              ],
+              "kind": "pred",
+              "name": "resists"
+            },
+            "domain": "bench",
+            "kind": "exists",
+            "var": "b"
+          }
+        ]
+      }
+    },
+    {
+      "action": {
+        "kind": "use_strongest",
+        "target": {
+          "kind": "ref",
+          "path": [
+            "opponent",
+            "active"
+          ]
+        },
+        "tera": false
+      },
+      "rule_name": "otherwise",
+      "when": null
+    }
+  ]
+}

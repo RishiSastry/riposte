@@ -1,0 +1,63 @@
+{
+  "model": "claude-opus-4-8",
+  "condition": "mcp-repair",
+  "seconds": 28,
+  "tool_calls": [
+    [
+      "language_overview",
+      ""
+    ],
+    [
+      "list_topics",
+      ""
+    ],
+    [
+      "get_topic",
+      "types_and_estimates"
+    ],
+    [
+      "get_topic",
+      "quirks"
+    ],
+    [
+      "get_topic",
+      "state_surface"
+    ],
+    [
+      "get_topic",
+      "predicates"
+    ],
+    [
+      "get_topic",
+      "actions"
+    ],
+    [
+      "get_topic",
+      "selectors"
+    ],
+    [
+      "get_topic",
+      "worked_example_offensive"
+    ],
+    [
+      "get_topic",
+      "worked_example_defensive"
+    ],
+    [
+      "predicate_reference",
+      "can_ko"
+    ],
+    [
+      "predicate_reference",
+      "outspeeds"
+    ],
+    [
+      "check_program",
+      "bot \"hazard_keeper\" format gen9randombat\u2026"
+    ]
+  ],
+  "n_tool_calls": 13,
+  "compile_status": "ok",
+  "diagnostics": [],
+  "win_rate": "49/50"
+}
