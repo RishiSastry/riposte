@@ -21,7 +21,7 @@ from .driver import Artifact, Condition
 FRONTIER_MODEL = "claude-opus-4-8"
 CHEAP_MODEL = "claude-haiku-4-5"
 
-_SEED_INSTRUCTIONS = """\
+_SEED_MCP = """\
 You are writing a program in **Riposte**, a small declarative language for Pokémon battle
 policies that you have never seen before. You must DISCOVER the language using the tools
 available to you before writing — do not guess its syntax from other languages or from
@@ -45,23 +45,37 @@ bot "..." format gen9randombattle
 Output nothing after the final code block.
 """
 
+_SEED_DOCS = """\
+You are writing a program in **Riposte**, a small declarative language for Pokémon battle
+policies that you have never seen before. The COMPLETE language reference is included at the
+end of this message — read it carefully and write a correct program. Do not guess syntax from
+other languages or from Pokémon knowledge; follow the reference.
+{repair_clause}
+When you are done, output your FINAL program as a single fenced code block tagged `rpo`.
+Output nothing after the final code block.
+
+===================== RIPOSTE LANGUAGE REFERENCE =====================
+{docs}
+"""
+
 _REPAIR_CLAUSE = (
-    "4. Call `check_program(source)` to compile it. If it returns diagnostics, call "
-    "`explain_error(code)` for any code you don't understand and fix the program. Repeat "
-    "until it compiles cleanly or you have made {n} repair attempts.\n"
+    "Then call `check_program(source)` to compile it. If it returns diagnostics, fix the "
+    "program (in the MCP condition you may also call `explain_error(code)`). Repeat until it "
+    "compiles cleanly or you have made {n} repair attempts.\n"
 )
 
 _FENCE_RE = re.compile(r"```(?:rpo|riposte)?\s*\n(.*?)```", re.DOTALL)
 
 
 class DeepAgentsDriver:
-    def __init__(self, mcp_cmd: list[str] | None, model: str = FRONTIER_MODEL):
+    def __init__(self, mcp_cmd: list[str] | None, model: str = FRONTIER_MODEL, docs: str = ""):
         if not mcp_cmd:
             raise ValueError(
                 "DeepAgentsDriver requires --mcp-cmd (the MCP server executable, e.g. riposte-mcp)"
             )
         self._mcp_cmd = mcp_cmd
         self._model = model
+        self._docs = docs  # concatenated steering reference, used for delivery="docs" (C1/C3)
 
     async def write_program(self, brief: str, condition: Condition) -> Artifact:
         # lazy heavy imports (evalkit[agent])
@@ -77,28 +91,36 @@ class DeepAgentsDriver:
             }
         }
         client = MultiServerMCPClient(servers)
-        tools = await client.get_tools()
+        all_tools = await client.get_tools()
 
-        # Condition gates check_program exposure (D-4: repair conditions only).
-        if not condition.allow_check_program:
-            tools = [t for t in tools if getattr(t, "name", "") != "check_program"]
-
-        repair_clause = ""
+        repair = ""
         if condition.allow_check_program and condition.max_repair_rounds > 0:
-            repair_clause = _REPAIR_CLAUSE.format(n=condition.max_repair_rounds)
-        instructions = _SEED_INSTRUCTIONS.format(repair_clause=repair_clause)
+            repair = _REPAIR_CLAUSE.format(n=condition.max_repair_rounds)
+
+        if condition.delivery == "docs":
+            # C1/C3: dump the full reference; the only tool (if any) is check_program.
+            if not self._docs:
+                raise ValueError("delivery='docs' needs the steering reference (pass docs=...)")
+            tools = [t for t in all_tools if getattr(t, "name", "") == "check_program"] if condition.allow_check_program else []
+            system_prompt = _SEED_DOCS.format(repair_clause=repair, docs=self._docs)
+        else:
+            # C2/C4: seed prompt + MCP discovery tools; check_program gated by the condition.
+            tools = all_tools if condition.allow_check_program else [
+                t for t in all_tools if getattr(t, "name", "") != "check_program"
+            ]
+            system_prompt = _SEED_MCP.format(repair_clause=repair)
 
         model = ChatAnthropic(model=self._model, max_tokens=8000)
-        agent = create_deep_agent(tools=tools, model=model, system_prompt=instructions)
+        agent = create_deep_agent(tools=tools, model=model, system_prompt=system_prompt)
         result = await agent.ainvoke({"messages": [{"role": "user", "content": brief}]})
 
         messages = result.get("messages", []) if isinstance(result, dict) else []
         text = _final_text(messages)
         source = _extract_program(text)
-        rounds = _count_tool_calls(messages, "check_program")
         return Artifact(
             source=source,
-            repair_rounds=rounds,
+            repair_rounds=_count_tool_calls(messages, "check_program"),
+            tokens=_sum_tokens(messages),
             transcript=messages,
             meta={"driver": "deepagents", "model": self._model, "condition": condition.name},
         )
@@ -137,3 +159,15 @@ def _count_tool_calls(messages: list, name: str) -> int:
             if (call.get("name") if isinstance(call, dict) else getattr(call, "name", "")) == name:
                 n += 1
     return n
+
+
+def _sum_tokens(messages: list) -> int:
+    """Total tokens across the run (for the cost metric, SPEC §7.3.6)."""
+    total = 0
+    for msg in messages:
+        um = getattr(msg, "usage_metadata", None)
+        if isinstance(um, dict):
+            total += um.get("total_tokens") or (
+                (um.get("input_tokens") or 0) + (um.get("output_tokens") or 0)
+            )
+    return total

@@ -16,14 +16,28 @@ from typing import Protocol, runtime_checkable
 class Condition:
     """A steering condition — the experiment's independent variable (SPEC §7.2).
 
-    - `name`: label, e.g. "mcp", "mcp-repair".
-    - `allow_check_program`: expose the MCP `check_program` tool (D-4 default: repair only).
+    - `name`: label, e.g. "C1-docs", "C4-mcp-repair".
+    - `delivery`: how the language is taught — "docs" (full reference dumped into the prompt,
+      one shot) or "mcp" (a seed prompt + discovery tools the agent explores).
+    - `allow_check_program`: expose the `check_program` compile tool (enables the repair loop;
+      D-4 default: repair conditions only).
     - `max_repair_rounds`: how many diag-feedback repair rounds the agent may take.
     """
 
     name: str
+    delivery: str = "mcp"  # "docs" | "mcp"
     allow_check_program: bool = False
     max_repair_rounds: int = 0
+
+
+# The four SPEC §7.2 conditions. C1/C3 dump the docs; C2/C4 use MCP discovery. C3/C4 add the
+# compiler-feedback repair loop.
+CONDITIONS = {
+    "C1-docs": Condition("C1-docs", delivery="docs", allow_check_program=False),
+    "C2-mcp": Condition("C2-mcp", delivery="mcp", allow_check_program=False),
+    "C3-docs-repair": Condition("C3-docs-repair", delivery="docs", allow_check_program=True, max_repair_rounds=3),
+    "C4-mcp-repair": Condition("C4-mcp-repair", delivery="mcp", allow_check_program=True, max_repair_rounds=3),
+}
 
 
 @dataclass

@@ -22,17 +22,18 @@ import sys
 from pathlib import Path
 
 from . import report
+from .driver import CONDITIONS as _PRESETS
 from .driver import Condition, StubDriver
 from .gherkin_runner import DEFAULT_PARALLELISM, run_features_async
 from .registry import registry
 from .result import RunResult
 from .world import World
 
-# Steering-condition presets (SPEC §7.2 / D-4). Override with --allow-check-program /
-# --repair-rounds.
+# The four SPEC §7.2 conditions plus back-compat aliases.
 CONDITIONS = {
-    "mcp": Condition("mcp", allow_check_program=False, max_repair_rounds=0),
-    "mcp-repair": Condition("mcp-repair", allow_check_program=True, max_repair_rounds=3),
+    **_PRESETS,
+    "mcp": _PRESETS["C2-mcp"],
+    "mcp-repair": _PRESETS["C4-mcp-repair"],
 }
 
 
@@ -54,9 +55,11 @@ def _build_driver(args) -> object:
     if args.driver == "deepagents":
         from .deepagents_driver import DeepAgentsDriver  # lazy: heavy deps
 
+        docs = Path(args.docs_file).read_text() if args.docs_file else ""
         return DeepAgentsDriver(
             mcp_cmd=shlex.split(args.mcp_cmd) if args.mcp_cmd else None,
             model=args.model,
+            docs=docs,
         )
     raise SystemExit(f"unknown driver: {args.driver}")
 
@@ -74,6 +77,7 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--allow-check-program", action="store_true")
     run.add_argument("--repair-rounds", type=int, default=None)
     run.add_argument("--stub-source", default=None, help="canned .rpo for --driver stub")
+    run.add_argument("--docs-file", default=None, help="language reference for docs-delivery conditions (C1/C3)")
     run.add_argument(
         "--parallel",
         type=int,

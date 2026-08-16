@@ -67,7 +67,10 @@ def test_all_features_pass_with_golden_program():
     ]
 
     def world_factory() -> World:
-        return World(driver=driver, condition=Condition("mcp-repair", True, 3))
+        return World(
+            driver=driver,
+            condition=Condition("mcp-repair", allow_check_program=True, max_repair_rounds=3),
+        )
 
     results = asyncio.run(
         run_features_async(features, registry, world_factory, parallelism=2)
