@@ -32,8 +32,8 @@ proves reusable, it can be `git subtree split` out later with full history.
 | `runtime/`   | `riposte-rt` (Python): thin interpreter over the JSON policy IR + poke-env Player. |
 | `mcp/`       | `riposte-mcp`: progressive language-discovery MCP server.              |
 | `steering/`  | Language docs in three grains — single source for C1 docs & C2 MCP.    |
-| `evalkit/`   | **Generic** eval framework: driver interface, condition runner, metrics, model tiering. No Pokémon/Riposte imports. |
-| `evals/`     | **Riposte-specific**: task briefs, golden `.rpo` programs, baselines, battle orchestration. Imports `evalkit`. |
+| `evalkit/`   | **Generic** eval framework: custom Gherkin runner, `deepagents`+MCP driver, step registry, CLI. No Pokémon/Riposte imports. |
+| `evals/`     | **Riposte-specific**: `.feature` task briefs, step definitions (compile/win-rate/quirks), baselines. Imports `evalkit`. |
 | `examples/`  | Example `.rpo` programs.                                               |
 | `writeup/`   | Eval-learnings post; references exact commits/artifacts.               |
 
@@ -50,7 +50,9 @@ eval kit).
   schema *and* plays real battles.
 - **MCP** ✅ — `riposte-mcp` serves the `steering/` grains (`language_overview`, `get_topic`,
   `predicate_reference`, `explain_error`, `check_program`).
-- **Eval kit** — deferred until requested (C1–C4 conditions, win-rate metrics, harness).
+- **Eval framework** ✅ — `evalkit` runs **Gherkin `.feature`** evals against a **LangChain
+  `deepagents`** agent wired to the `riposte-mcp` executable; grades compile-pass, win rate vs
+  baselines, and a quirk-violation budget. Domain-agnostic core + Riposte step defs in `evals/`.
 
 Try it:
 

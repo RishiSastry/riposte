@@ -23,7 +23,20 @@ _MON_FIELDS = {
     "status": lambda m: m.status,
     "level": lambda m: m.level,
     "max_hp": lambda m: m.max_hp,
+    "ability": lambda m: m.ability,
+    "item": lambda m: m.item,
+    "first_turn_out": lambda m: m.first_turn,
 }
+
+
+def _stat_value(mon: Pokemon, stat: str) -> int:
+    """A mon's stat: exact for our mons, median estimate for opponents (est ranges)."""
+    known = (mon.stats or {}).get(stat)
+    if known is not None:
+        return known
+    from .damagecalc import max_hp_range, stat_range
+
+    return max_hp_range(mon)[1] if stat == "hp" else stat_range(mon, stat)[1]
 
 
 @dataclass
@@ -86,8 +99,15 @@ def eval_expr(node: Any, ctx: Ctx) -> Any:
         rest = path[mon_len:]
         if not rest:
             return mon
-        if len(rest) == 1 and rest[0] in _MON_FIELDS:
-            return _MON_FIELDS[rest[0]](mon)
+        if len(rest) == 1:
+            if rest[0] == "is_tera_available":  # battle-level, not a mon attribute
+                return bool(getattr(ctx.battle, "can_tera", None))
+            if rest[0] in _MON_FIELDS:
+                return _MON_FIELDS[rest[0]](mon)
+        if len(rest) == 2 and rest[0] == "boosts":
+            return mon.boosts.get(rest[1], 0)
+        if len(rest) == 2 and rest[0] == "stats":
+            return _stat_value(mon, rest[1])
         raise InterpError(f"unknown field path: {path}")
 
     if k == "pred":

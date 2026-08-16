@@ -25,6 +25,8 @@ class RipostePlayer(Player):
         self._trace_path = Path(trace_path) if trace_path else None
         self.fallback_count = 0
         self.decision_count = 0
+        self.rule_errors = 0
+        self._last_error = None
 
     @classmethod
     def from_policy_file(cls, path: str, *args: Any, **kwargs: Any) -> "RipostePlayer":
@@ -39,9 +41,18 @@ class RipostePlayer(Player):
         fallback = False
         order = None
         for rule in rules:
-            if not self._when_true(rule, ctx):
+            try:
+                if not self._when_true(rule, ctx):
+                    continue
+                candidate = interp.execute_action(rule.action, ctx, self)
+            except Exception as e:  # noqa: BLE001
+                # A rule that errors at runtime (unsupported field, bad predicate arg) must
+                # not stall the battle — treat it as not-fired and move on. This keeps the
+                # eval harness from hanging on a policy the runtime can't interpret; the
+                # program simply plays worse. Counted as a fallback signal.
+                self.rule_errors += 1
+                self._last_error = f"{rule.rule_name}: {type(e).__name__}: {e}"
                 continue
-            candidate = interp.execute_action(rule.action, ctx, self)
             if candidate is not None:
                 fired, order = rule.rule_name, candidate
                 break

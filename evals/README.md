@@ -1,16 +1,39 @@
 # evals — Riposte-specific eval bindings
 
-The concrete experiment for Riposte. Imports the generic [`../evalkit/`](../evalkit/) and
-supplies everything Pokémon/Riposte-specific. See [SPEC.md §7](../SPEC.md).
+The concrete experiment for Riposte. Depends on the generic [`../evalkit/`](../evalkit/) and
+supplies everything Pokémon/Riposte-specific: Gherkin step definitions, baseline opponents,
+and the `.feature` task briefs. See [SPEC.md §7](../SPEC.md).
 
-- `tasks/` — 25–40 natural-language strategy briefs, graded T1–T3.
-- `golden/` — reference `.rpo` programs we write; double as the harness smoke test.
-- `conditions/` — steering condition configs (C1 docs-dump, C2 progressive-MCP,
-  C3 docs+repair, C4 MCP+repair); pinned model versions.
-- `analysis/` — notebooks: win-rate + Wilson CIs, the "compiles but loses" gap vs. golden,
-  quirk-error profiles.
-- Battle orchestration (async, seeded) against baselines: `RandomPlayer`,
-  `MaxDamagePlayer`, `SimpleHeuristics` (ours), and each task's golden program.
+## Layout
 
-**Headline metric:** agent-program win rate vs. golden-program win rate on the same task —
-the semantic gap that parse/compile metrics can't see.
+| Path                       | What lives here                                                    |
+|----------------------------|-------------------------------------------------------------------|
+| `riposte_evals/steps.py`   | Step definitions: *agent writes a bot* (driver) · *compiles* (riposte-c) · *wins ≥P% of N vs baseline* (RipostePlayer) · *≤K quirk violations* (diag codes). |
+| `riposte_evals/baselines.py` | Baseline name → poke-env player (`random`, `maxbp`, `heuristics`). |
+| `features/*.feature`       | Task briefs as Gherkin (the feature description is the brief).     |
+| `tests/test_e2e.py`        | Full pipeline with the golden program as a stand-in agent.        |
+| `tasks/ golden/ conditions/ analysis/` | Room for more briefs, golden `.rpo`, condition configs, notebooks. |
+
+## Run
+
+Prereqs: a local Showdown server on `:8000` (`node pokemon-showdown start --no-security`) and
+a built compiler (`cargo build` in `compiler/`).
+
+```bash
+pip install -e evalkit -e evals        # riposte_evals depends on evalkit + riposte-rt
+
+# real run (needs an Anthropic credential + evalkit[agent]):
+evalkit run evals/features/ --steps riposte_evals.steps \
+  --driver deepagents --mcp-cmd riposte-mcp --condition mcp-repair
+
+# dry run with the golden program instead of an agent:
+evalkit run evals/features/hazard_control.feature --steps riposte_evals.steps \
+  --driver stub --stub-source examples/hazard_control.rpo
+```
+
+## The headline metric (future)
+
+`steps.py` grades win rate vs fixed baselines. The **"compiles but loses" gap** — agent
+program win rate vs the *golden* program on the same task — is the semantic-quality signal the
+SPEC calls out (§7.3.4); a `golden` baseline that plays a reference `.rpo` slots into the same
+win-rate step.

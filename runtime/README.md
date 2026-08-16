@@ -9,7 +9,7 @@ this package *interprets* it and plays battles via poke-env. See [SPEC.md §6](.
 | `predicates.py`   | Predicate library + the `Tri` tribool type. Python side of `predicates.toml`. |
 | `damagecalc.py`   | **M2:** real gen-9 damage formula (stats, STAB, type chart, boosts, burn, weather, screens). |
 | `interp.py`       | Evaluate the condition expr tree; execute actions → poke-env orders.     |
-| `player.py`       | `RipostePlayer(Player)`: block select, top-down rules, fallback, traces. |
+| `player.py`       | `RipostePlayer(Player)`: block select, top-down rules, fallback, traces. A rule that errors at runtime is caught and skipped (never stalls a battle) — a policy the runtime can't interpret loses, it doesn't hang the eval harness. |
 
 ## M0 status: walking skeleton ✅
 
