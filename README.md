@@ -35,11 +35,12 @@ stats), so a comparison over an estimate is a `tribool` that *must* be resolved 
 `likely` / `worst_case` / `best_case`. Treating a guess as a certainty does not compile. Peeking
 at hidden state has no syntax at all.
 
-## The result it was built to produce
+## The result (not the one I expected)
 
-The harness varies *how the language is taught* to an agent (docs in the prompt vs. discovery
-through MCP tools, each with and without a compiler-feedback repair loop) and grades what the
-agent writes:
+I built this to measure one thing: whether docs in the prompt or discovery through MCP tools
+teaches the language better. The sharper answer turned out to be about neither. The harness
+varies *how the language is taught* to an agent (docs vs. MCP discovery, each with and without
+a compiler-feedback repair loop) and grades what the agent writes:
 
 | how the language was taught | compile-pass | quirk violations | win-rate | avg tokens |
 |---|---|---|---|---|
@@ -74,8 +75,9 @@ evalkit run evals/features/hazard_control.feature --steps riposte_evals.steps \
 python evals/experiment.py
 ```
 
-Running the app end-to-end (local Showdown server, a hand-written policy beating `RandomPlayer`
-~99%) and the full architecture are in [GUIDE.md](./GUIDE.md).
+Running the app end-to-end (local Showdown server, a hand-written policy that wins ~99% vs
+`RandomPlayer` and ~37% vs `SimpleHeuristics`, the same baseline the agents score ~44% against)
+and the full architecture are in [GUIDE.md](./GUIDE.md).
 
 ## What's here
 
