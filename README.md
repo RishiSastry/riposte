@@ -1,69 +1,16 @@
 # Riposte
 
-**A small declarative language for Pokémon battle policies — and an instrument for measuring
-how you best teach an LLM a language it has never seen.**
+A tiny declarative language for Pokémon battle policies that no LLM has ever seen. A Riposte
+program compiles (Rust) to a JSON policy IR that a Python runtime plays on a real
+[Pokémon Showdown](https://github.com/smogon/pokemon-showdown) server via
+[poke-env](https://poke-env.readthedocs.io). It exists as an **instrument**: a clean way to
+measure how you best teach a coding agent a language it has never seen, graded not by an
+LLM-as-judge but by whether the program **compiles** and **wins real battles**.
 
-A Riposte program compiles to a deterministic policy that plays real battles on
-[Pokémon Showdown](https://github.com/smogon/pokemon-showdown) via
-[poke-env](https://poke-env.readthedocs.io). No model has ever seen this language. That's the
-point — it's a clean instrument for the question the project actually answers:
+The write-up that motivates it: [**How I evaluate coding agents that write DSLs**](./writeup/agent-evals-for-dsls.md).
+Design rationale: [SPEC.md](./SPEC.md). Engineering tour: [GUIDE.md](./GUIDE.md).
 
-> **Given a language an LLM has never seen, which steering strategy best teaches an agent to
-> write correct, competitive programs in it?**
-
-Full design rationale is in [SPEC.md](./SPEC.md).
-
-## Watch a model learn it
-
-A real run: **Claude Opus 4.8, which has never seen Riposte**, was given one brief and the
-`riposte-mcp` discovery tools. In **28 s** it walked the language grains, wrote a program,
-compiled it **clean on the first try**, and won **49/50 vs `RandomPlayer`** — getting all four
-quirks right.
-
-```
-language_overview() → list_topics() → get_topic(types_and_estimates) → get_topic(quirks)
-→ … the grains … → predicate_reference(can_ko) → predicate_reference(outspeeds)
-→ check_program(...)  ✓ 0 diagnostics
-```
-
-The exact program, the full tool-call transcript, and the compiled IR are in
-[**`examples/agent_demo/`**](./examples/agent_demo/) — the clearest single view of what this
-project is for.
-
-## Why this is different from "LLM plays Pokémon"
-
-Most work consults an LLM *every turn*. Here the LLM writes a policy **once**; execution is
-deterministic and free. And the language is built to make cheating impossible at the type
-level — battles are partially observable, so Riposte separates **facts** (what you truly know)
-from **estimates** (opponent stats, unrevealed moves). You cannot write a program that peeks
-at hidden state, and you cannot silently treat an estimate as certain — the compiler rejects
-both. The interesting bugs are *semantic*: programs that compile and then lose. Those are
-invisible to parse/execute metrics and central here.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    agent["LLM agent<br/>(writes .rpo)"]
-    mcp["riposte-mcp<br/>progressive discovery"]
-    compiler["riposte-c (Rust)<br/>lex → parse → typeck → emit"]
-    runtime["runtime (Python)<br/>interprets IR"]
-    showdown["local Showdown<br/>(node)"]
-
-    agent -->|.rpo source| compiler
-    compiler -->|policy.json IR| runtime
-    compiler -->|diagnostics.json| agent
-    mcp <-->|discover language / check_program| agent
-    runtime <-->|websocket| showdown
-```
-
-The compiler emits a **versioned JSON policy IR**, not Python — codegen stays trivial,
-artifacts are inspectable/diffable, and all semantic checking lives in the Rust front end
-where the structured errors are. The eval framework drives an LLM agent (LangChain
-`deepagents`) wired to the MCP server, and grades what it writes by **win rate over real
-battles**.
-
-## The language at a glance
+## A program
 
 ```
 bot "hazard_control" format gen9randombattle
@@ -83,63 +30,60 @@ on turn:
     do use strongest_move against opponent.active
 ```
 
-### The four deliberate quirks — the measurement instrument
+The type system separates **facts** (what you know) from **estimates** (the opponent's hidden
+stats), so a comparison over an estimate is a `tribool` that *must* be resolved with
+`likely` / `worst_case` / `best_case`. Treating a guess as a certainty does not compile. Peeking
+at hidden state has no syntax at all.
 
-These are correct-but-unfamiliar choices. An agent that reads the steering gets them right;
-one pattern-matching from internet Pokémon knowledge gets them wrong in ways that compile and
-lose.
+## The result it was built to produce
 
-| Quirk | Rule | Enforced by |
-|-------|------|-------------|
-| **Q1 fractions** | all HP/damage are fractions in `[0,1]` — no raw HP anywhere | — |
-| **Q2 categorical effectiveness** | `effectiveness(m,d) at_least super`, never `> 2` | **E032** |
-| **Q3 rule order = priority** | first true `when` wins; no scores, no weights | — |
-| **Q4 mandatory resolvers** | an estimate comparison is a `tribool`; resolve with exactly one of `likely`/`worst_case`/`best_case` | **E030** (missing) / **E031** (redundant) |
+The harness varies *how the language is taught* to an agent (docs in the prompt vs. discovery
+through MCP tools, each with and without a compiler-feedback repair loop) and grades what the
+agent writes:
 
-## What's built
+| how the language was taught | compile-pass | quirk violations | win-rate | avg tokens |
+|---|---|---|---|---|
+| docs, one-shot | 83% | 0.11 | 45% | 21K |
+| tool-discovery, one-shot | 89% | 0.06 | 42% | 35K |
+| docs + repair loop | **100%** | **0.0** | 44% | 31K |
+| tool-discovery + repair loop | **100%** | **0.0** | 44% | 48K |
 
-| Component | Status |
-|-----------|--------|
-| **Compiler** `riposte-c` (Rust) — lexer, recursive-descent parser + recovery, AST, `GRAMMAR.ebnf`, epistemic type system, IR emit, `diag.json` | ✅ M1+M2 |
-| **Runtime** `riposte-rt` (Python) — IR interpreter, gen-9 damage calc, poke-env `RipostePlayer` | ✅ M0+M2 |
-| **MCP server** `riposte-mcp` — progressive language discovery (`get_topic`, `predicate_reference`, `explain_error`, `check_program`) | ✅ |
-| **Eval framework** `evalkit` — async-parallel Gherkin runner over a `deepagents`+MCP agent; grades compile-pass, win rate vs baselines, quirk budget | ✅ |
-| **C1–C4 × models × k-task matrix** — first real result ([`writeup/findings.md`](./writeup/findings.md)): *a repair loop dominates the delivery channel; docs-dump + repair is the cost-efficient sweet spot* | ✅ |
-| Larger task set + eval-learnings blog | ⏳ next |
+> **Illustrative, not settled.** 3 tasks × 4 conditions × 2 models (Claude Opus, Haiku) × k=3 =
+> 72 runs, one pass, win-rate over 60 battles vs. a heuristic baseline. The spec targets 25–40
+> tasks; compile-pass CIs are correspondingly wide (see [findings](./writeup/findings.md)). Read
+> it as a demo of the harness.
 
-## Repo layout
-
-| Path | What lives here |
-|------|-----------------|
-| `compiler/` | Rust workspace: `diagnostics`, `lexer`, `ast`, `parser`, `typeck`, `emit`, `riposte-c` (CLI). |
-| `runtime/` | `riposte_rt`: IR schema, predicates, damage calc, interpreter, poke-env player. |
-| `mcp/` | `riposte-mcp` server. |
-| `steering/` | Language docs in grains — the single source for both a docs-dump and the MCP tools. |
-| `predicates.toml` | Shared predicate signatures (Rust typeck ↔ Python runtime; can't drift). |
-| `evalkit/` | Generic eval framework (no Riposte imports) — Gherkin runner, agent driver, CLI. |
-| `evals/` | Riposte step defs, baselines, `.feature` task briefs. |
-| `examples/` | Example `.rpo` programs + the agent demo. |
+Directionally: a compiler-feedback repair loop moved compile reliability more than the delivery
+channel did, and reached it for fewer tokens when paired with docs. Once a program was valid,
+competitive quality was flat across conditions. Full numbers, per-model splits, and Wilson CIs
+in [`writeup/findings.md`](./writeup/findings.md).
 
 ## Quickstart
 
 ```bash
-# 1. compiler
+# 1. build the compiler and compile a program to its IR
 cargo build --manifest-path compiler/Cargo.toml
-compiler/target/debug/riposte-c build examples/hazard_control.rpo --stdout   # → policy.json
+compiler/target/debug/riposte-c build examples/hazard_control.rpo --stdout
 
-# 2. runtime + local Showdown (pinned commit in .showdown-commit)
-#    play a hand-written policy vs RandomPlayer
-cd pokemon-showdown && node pokemon-showdown start --no-security &   # terminal 1
-cd runtime && uv venv && uv pip install -e ".[dev]" && cd ..
-python scripts/m0_gate.py --n 100                                    # ≈99% vs Random
-
-# 3. run the evals (stub agent — no API key needed)
+# 2. run the eval harness (stub agent, no API key needed)
 pip install -e evalkit -e evals
 evalkit run evals/features/hazard_control.feature --steps riposte_evals.steps \
   --driver stub --stub-source examples/hazard_control.rpo
+
+# 3. reproduce the experiment above (needs evalkit[agent] + ANTHROPIC_API_KEY + local Showdown)
+python evals/experiment.py
 ```
 
-To run a **live** agent, `pip install -e "evalkit[agent]"`, set `ANTHROPIC_API_KEY`, and use
-`--driver deepagents --mcp-cmd riposte-mcp`.
+Running the app end-to-end (local Showdown server, a hand-written policy beating `RandomPlayer`
+~99%) and the full architecture are in [GUIDE.md](./GUIDE.md).
 
-See [SPEC.md §9](./SPEC.md) for milestones M0–M5.
+## What's here
+
+| Path | What's here |
+|------|-------------|
+| [`compiler/`](./compiler) | The DSL compiler (Rust): lexer, parser, epistemic type system (the fact/est checks), IR emit, first-class `diag.json`. |
+| [`runtime/`](./runtime) | Interprets the compiled IR and plays battles via poke-env. |
+| [`mcp/`](./mcp) · [`steering/`](./steering) | The MCP discovery server + the language docs it serves (one source, two delivery modes). |
+| [`evalkit/`](./evalkit) · [`evals/`](./evals) | The eval framework: async Gherkin runner + `deepagents` agent driver, and the Riposte grading. |
+| [`examples/agent_demo/`](./examples/agent_demo) | A real transcript of a model discovering the language via MCP and writing a winning bot. |
+| [`writeup/`](./writeup) | The essay and the raw findings. |
